@@ -1,4 +1,4 @@
-use simptim::SysTime;
+use simptim::{exit, Exit, SysTime};
 use std::io::{self, StdoutLock, Write};
 pub use std::process::ExitCode;
 
@@ -10,14 +10,11 @@ use termion::{
     style,
 };
 
-fn main() -> ExitCode {
+fn main() -> Exit {
     let stdout = io::stdout();
     let mut stdout = match stdout.lock().into_raw_mode() {
         Ok(ok) => ok,
-        Err(err) => {
-            eprintln!("ERROR: {err}");
-            return ExitCode::FAILURE;
-        }
+        Err(err) => return exit(err),
     };
     let systime = SysTime::new();
     let mut size = (0u16, 0u16);
@@ -25,21 +22,18 @@ fn main() -> ExitCode {
     loop {
         if let Some(ev) = events.next() {
             match ev {
-                Ok(Key::Esc | Key::Ctrl('c') | Key::Ctrl('d')) => break ExitCode::SUCCESS,
-                Err(err) => {
-                    eprintln!("ERROR: {err}");
-                    break ExitCode::FAILURE;
-                }
+                Ok(Key::Esc | Key::Ctrl('c') | Key::Ctrl('d')) => break,
+                Err(err) => return exit(err),
                 _ => {}
             }
         }
         size = termion::terminal_size().unwrap_or(size);
         if let Err(err) = run(&mut stdout, &systime, size) {
-            eprintln!("ERROR: {err}");
-            break ExitCode::FAILURE;
+            return exit(err);
         }
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
+    Exit::SUCCESS
 }
 
 fn run(
